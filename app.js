@@ -14,6 +14,7 @@ const app = express();
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
+// sessin & cookie Auth
 app.use(
   session({
     secret: "My Secret",
@@ -34,7 +35,7 @@ const userSchema = mongoose.Schema({
   email: String,
   password: String,
   googleId: String,
-  secret :
+  secret: String,
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -44,6 +45,7 @@ const User = mongoose.model("User", userSchema);
 
 passport.use(User.createStrategy());
 
+// universal Auth
 passport.serializeUser(function (user, done) {
   done(null, user.id);
 });
@@ -100,7 +102,20 @@ app.get("/register", function (req, res) {
   res.render("register");
 });
 
-app.get("/secrets", function (req, res) {});
+app.get("/secrets", function (req, res) {
+  User.find({ secret: { $ne: null } }, function (err, foundUsers) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUsers) {
+        res.render("secrets", { usersWithSecrets: foundUsers });
+      }
+      // else {
+      //   res.redirect("/submit");
+      // }
+    }
+  });
+});
 
 app.get("/submit", function (req, res) {
   if (req.isAuthenticated()) {
@@ -117,7 +132,10 @@ app.post("/submit", function (req, res) {
       console.log(err);
     } else {
       if (foundUser) {
-        
+        foundUser.secret = submittedSecret;
+        foundUser.save(function () {
+          res.redirect("/secrets");
+        });
       } else {
         res.redirect("/login");
       }
@@ -125,6 +143,7 @@ app.post("/submit", function (req, res) {
   });
 });
 
+// sessin & cookie Auth
 app.post("/login", function (req, res) {
   const user = new User({
     username: req.body.username,
